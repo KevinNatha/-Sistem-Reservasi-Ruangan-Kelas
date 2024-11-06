@@ -6,32 +6,42 @@ class Room {
         this.reservations = [];
     }
 
-    isAvailable(date, startTime, duration) {
+    // Memeriksa ketersediaan ruangan berdasarkan kapasitas dan waktu
+    isAvailable(date, startTime, duration, participants) {
         const newEndTime = new Date(`${date}T${startTime}`);
         newEndTime.setHours(newEndTime.getHours() + parseInt(duration));
 
-        return this.reservations.every(reservation => {
+        // Periksa apakah ada reservasi yang tumpang tindih
+        const isTimeAvailable = this.reservations.every(reservation => {
             const resStartTime = new Date(`${reservation.date}T${reservation.startTime}`);
             const resEndTime = new Date(resStartTime);
             resEndTime.setHours(resEndTime.getHours() + reservation.duration);
 
             return newEndTime <= resStartTime || new Date(`${date}T${startTime}`) >= resEndTime;
         });
+
+        // Periksa apakah kapasitas mencukupi
+        const isCapacityAvailable = this.capacity >= participants;
+
+        return isTimeAvailable && isCapacityAvailable;
     }
 
+    // Menambahkan reservasi dan mengurangi kapasitas
     addReservation(reservation) {
         this.reservations.push(reservation);
+        this.capacity -= reservation.participants; // Mengurangi kapasitas ruangan
     }
 }
 
 // Kelas Reservation
 class Reservation {
-    constructor(name, roomNumber, date, startTime, duration) {
+    constructor(name, roomNumber, date, startTime, duration, participants) {
         this.name = name;
         this.roomNumber = roomNumber;
         this.date = date;
         this.startTime = startTime;
         this.duration = parseInt(duration);
+        this.participants = participants; // Menyimpan jumlah peserta
     }
 }
 
@@ -68,16 +78,17 @@ function makeReservation() {
     const date = document.getElementById("date").value;
     const startTime = document.getElementById("start-time").value;
     const duration = document.getElementById("duration").value;
+    const participants = parseInt(document.getElementById("participants").value);
     const errorMessage = document.getElementById("error-message");
 
     const room = rooms.find(r => r.number === roomNumber);
 
-    if (!room || !room.isAvailable(date, startTime, duration)) {
-        errorMessage.innerText = "Ruangan tidak tersedia pada waktu yang dipilih.";
+    if (!room || !room.isAvailable(date, startTime, duration, participants)) {
+        errorMessage.innerText = "Ruangan tidak tersedia pada waktu yang dipilih atau kapasitas tidak mencukupi.";
         return;
     }
 
-    const reservation = new Reservation(name, roomNumber, date, startTime, duration);
+    const reservation = new Reservation(name, roomNumber, date, startTime, duration, participants);
     room.addReservation(reservation);
     displayReservations();
     displayRooms();
@@ -91,7 +102,7 @@ function displayReservations() {
     rooms.forEach(room => {
         room.reservations.forEach((reservation, index) => {
             const item = document.createElement("li");
-            item.innerText = `Nama: ${reservation.name}, Ruangan: ${reservation.roomNumber}, Tanggal: ${reservation.date}, Waktu Mulai: ${reservation.startTime}, Durasi: ${reservation.duration} jam`;
+            item.innerText = `Nama: ${reservation.name}, Ruangan: ${reservation.roomNumber}, Tanggal: ${reservation.date}, Waktu Mulai: ${reservation.startTime}, Durasi: ${reservation.duration} jam, Peserta: ${reservation.participants}`;
             const cancelButton = document.createElement("button");
             cancelButton.innerText = "Batalkan";
             cancelButton.onclick = () => cancelReservation(room, index);
@@ -103,6 +114,8 @@ function displayReservations() {
 
 // Membatalkan reservasi
 function cancelReservation(room, index) {
+    const reservation = room.reservations[index];
+    room.capacity += reservation.participants; // Menambahkan kapasitas kembali
     room.reservations.splice(index, 1);
     displayReservations();
     displayRooms();
